@@ -35,17 +35,15 @@ function HotSpotsPage() {
               <strong className="purple">Project Details</strong>
             </h2>
             <p className="project-body">
-              Perfect Fit started as a solution to a personal problem I faced when I didn't know what to wear for spring break. I found myself struggling to mix and match outfits from my wardrobe and realized that there had to be a better way to make those decisions. This experience sparked the idea for Perfect Fit, a virtual wardrobe platform that could help users create personalized outfits by analyzing their clothing and suggesting combinations that suit their style.
+            During the INRIX Hackathon, my team was presented with the exciting challenge of creating a product using the INRIX APIs. Given the rich data available through the drive time polygons and foot traffic APIs, we decided to develop HotSpots, a location intelligence platform aimed at helping businesses evaluate potential sites. The idea was to create a tool that could provide businesses with virtual tours of locations and analyze key factors like accessibility and foot traffic, making site selection smarter and more efficient.
             </p>
             <p className="project-body">
-              As I developed the idea further, I realized the potential for it to become something much bigger than just a personal tool. I started working on the project, building out the core components like the Fit Finder feature, which allows users to swipe through clothing suggestions and upload new items to their virtual wardrobe. This feature helps alleviate the uncertainty of online shopping by letting users see how new pieces would fit with their existing wardrobe.
+            I took charge of the frontend development, where my main tasks included integrating the Google Maps API to enable virtual tours and designing a user-friendly sidebar that would allow users to interact with the map and access detailed information about each location. Working on this project was a deep dive into the intersection of data visualization and user experience, and it pushed me to hone my skills in React and Deck.gl.
             </p>
             <p className="project-body">
-              With the concept taking shape, I decided to pitch Perfect Fit to the Bronco Ventures Accelerator (BVA) program at Santa Clara University. BVA is a highly selective program that supports student entrepreneurs by providing resources, mentorship, and funding opportunities to help them develop and scale their startups. Getting accepted into BVA was a significant milestone, as it provided me with the guidance and support needed to take Perfect Fit to the next level.
+            As we progressed, it became clear that our project was coming together in a powerful way. The team collaborated closely, combining our skills to create a functional and visually appealing platform that met the hackathon's objectives. When the hackathon concluded, we were thrilled to learn that our hard work had been recognized—we placed 5th and earned an honorable mention. This achievement was especially rewarding because it validated our approach to solving a real-world problem, and it was a testament to our teamwork and dedication throughout the hackathon.
             </p>
-            <p className="project-body">
-              For the tech stack, I chose React for the frontend because of its flexibility and component-based architecture, which made it ideal for building the interactive user interface of Perfect Fit. Node.js was selected for the backend due to its scalability and efficiency in handling asynchronous operations, crucial for managing real-time data and user interactions. Firebase was integrated for real-time data management, allowing seamless synchronization of wardrobe updates and outfit suggestions.
-            </p>
+            
           </Col>
         </Row>
       </Container>
