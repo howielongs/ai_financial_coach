@@ -6,6 +6,10 @@ import About from "./components/About/About";
 import Projects from "./components/Projects/Projects";
 import Footer from "./components/Footer";
 import Resume from "./components/Resume/ResumeNew";
+import PerfectFitPage from "./components/Pages/PerfectFitPage";
+import FitFinderPage from "./components/Pages/FitFinderPage";
+import HotSpotsPage from "./components/Pages/HotSpotsPage";
+
 import {
   BrowserRouter as Router,
   Route,
@@ -37,6 +41,12 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/project" element={<Projects />} />
+          <Route path="/perfect-fit" element={<PerfectFitPage />} />
+          <Route path="/fit-finder" element={<FitFinderPage />} />
+          <Route path="/hotspots" element={<HotSpotsPage />} />
+
+          {/* Add routes for other projects */}
+
           <Route path="/about" element={<About />} />
           <Route path="/resume" element={<Resume />} />
           <Route path="*" element={<Navigate to="/"/>} />

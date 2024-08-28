@@ -99,7 +99,7 @@ function NavBar() {
                 target="_blank"
                 rel="noreferrer"
               >
-                <FaLinkedinIn style={{ marginBottom: "2px" }}/> LinkedIn
+                <FaLinkedinIn style={{ marginBottom: "2px" }}/> Experience
                 
               </Nav.Link>
             </Nav.Item>

@@ -1,6 +1,6 @@
 import React from "react";
 import { Container, Row, Col } from "react-bootstrap";
-import myImg from "../../Assets/avatar.svg";
+import myImg from "../../Assets/luo_pic.JPG";
 import Tilt from "react-parallax-tilt";
 import {
   AiFillGithub,
@@ -19,36 +19,35 @@ function Home2() {
               LET ME <span className="purple"> INTRODUCE </span> MYSELF
             </h1>
             <p className="home-about-body">
-              I fell in love with programming and I have at least learnt
-              something, I think… 🤷‍♂️
+            I enjoy coding because it lets me create practical and effective solutions, and I find the process really satisfying.
               <br />
-              <br />I am fluent in classics like
+              <br />I'm skilled in
               <i>
-                <b className="purple"> C++, Javascript and Go. </b>
+                <b className="purple"> React, Node.js, Python, and C++ </b>
+                which helps me work on both frontend and backend tasks
               </i>
               <br />
               <br />
-              My field of Interest's are building new &nbsp;
+              I'm interested in&nbsp;
               <i>
-                <b className="purple">Web Technologies and Products </b> and
-                also in areas related to{" "}
+                <b className="purple">Software Engineering and Full Stack Development</b> and
+                along with areas related to{" "}
                 <b className="purple">
-                  Blockchain.
+                  Data Analysis.
                 </b>
               </i>
               <br />
               <br />
-              Whenever possible, I also apply my passion for developing products
-              with <b className="purple">Node.js</b> and
+              I'm always looking to improve, whether by <b className="purple">learning new languages</b> or
               <i>
                 <b className="purple">
                   {" "}
-                  Modern Javascript Library and Frameworks
+                  tackling new projects.
                 </b>
               </i>
               &nbsp; like
               <i>
-                <b className="purple"> React.js and Next.js</b>
+                <b className="purple"> Perfect Fit and HotSpots</b>
               </i>
             </p>
           </Col>
@@ -67,7 +66,7 @@ function Home2() {
             <ul className="home-about-social-links">
               <li className="social-icons">
                 <a
-                  href="https://github.com/soumyajit4419"
+                  href="https://github.com/howielongs/"
                   target="_blank"
                   rel="noreferrer"
                   className="icon-colour  home-social-icons"
@@ -77,7 +76,7 @@ function Home2() {
               </li>
               <li className="social-icons">
                 <a
-                  href="https://twitter.com/Soumyajit4419"
+                  href=""
                   target="_blank"
                   rel="noreferrer"
                   className="icon-colour  home-social-icons"
@@ -87,7 +86,7 @@ function Home2() {
               </li>
               <li className="social-icons">
                 <a
-                  href="https://www.linkedin.com/in/soumyajit4419/"
+                  href="https://www.linkedin.com/in/luo-long/"
                   target="_blank"
                   rel="noreferrer"
                   className="icon-colour  home-social-icons"
@@ -97,7 +96,7 @@ function Home2() {
               </li>
               <li className="social-icons">
                 <a
-                  href="https://www.instagram.com/soumyajit4419"
+                  href="https://www.instagram.com/howielong_"
                   target="_blank"
                   rel="noreferrer"
                   className="icon-colour home-social-icons"
