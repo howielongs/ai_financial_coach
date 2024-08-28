@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import { CgGitFork } from "react-icons/cg";
 import { ImBlog } from "react-icons/im";
 import { FaLinkedinIn } from "react-icons/fa";
+import { FaBusinessTime } from "react-icons/fa";
 import {
   AiFillStar,
   AiOutlineHome,
@@ -95,12 +96,11 @@ function NavBar() {
 
             <Nav.Item>
               <Nav.Link
-                href="https://www.linkedin.com/in/luo-long/"
-                target="_blank"
-                rel="noreferrer"
+                as={Link}
+                to="/experience"
+                onClick={() => updateExpanded(false)}
               >
-                <FaLinkedinIn style={{ marginBottom: "2px" }}/> Experience
-                
+                <FaBusinessTime style={{ marginBottom: "2px" }} /> Experience
               </Nav.Link>
             </Nav.Item>
 

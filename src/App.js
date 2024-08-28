@@ -6,9 +6,13 @@ import About from "./components/About/About";
 import Projects from "./components/Projects/Projects";
 import Footer from "./components/Footer";
 import Resume from "./components/Resume/ResumeNew";
+import Experience from "./components/Timeline/Experience";
 import PerfectFitPage from "./components/Pages/PerfectFitPage";
 import FitFinderPage from "./components/Pages/FitFinderPage";
 import HotSpotsPage from "./components/Pages/HotSpotsPage";
+import SafeBroncPage from "./components/Pages/SafeBroncPage";
+import WordScramblingPage from "./components/Pages/WordScramblingPage";
+
 
 import {
   BrowserRouter as Router,
@@ -44,11 +48,14 @@ function App() {
           <Route path="/perfect-fit" element={<PerfectFitPage />} />
           <Route path="/fit-finder" element={<FitFinderPage />} />
           <Route path="/hotspots" element={<HotSpotsPage />} />
+          <Route path="/safebronc" element={<SafeBroncPage />} />
+          <Route path="/word-scrambling" element={<WordScramblingPage />} />
 
           {/* Add routes for other projects */}
 
           <Route path="/about" element={<About />} />
           <Route path="/resume" element={<Resume />} />
+          <Route path="/experience" element={<Experience />} />
           <Route path="*" element={<Navigate to="/"/>} />
         </Routes>
         <Footer />

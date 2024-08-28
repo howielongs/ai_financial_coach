@@ -8,7 +8,9 @@ import editor from "../../Assets/Projects/codeEditor.png";
 import perfectFit from "../../Assets/Projects/perfectlogo.png";
 import suicide from "../../Assets/Projects/suicide.png";
 import fitFinder from "../../Assets/Projects/fitfinder.png";
-import hotSpots from "../../Assets/Projects/hotspots.png"
+import hotSpots from "../../Assets/Projects/hotspots.png";
+import safeBronc from "../../Assets/Projects/SafeBronc.png";
+import wordScramble from "../../Assets/Projects/wordscramble.png";
 
 function Projects() {
   return (
@@ -51,6 +53,26 @@ function Projects() {
               description="HotSpot is a location intelligence platform that helps businesses evaluate potential sites by offering virtual tours through Google Maps' street view. Built with Node.js on the backend, it uses Google Maps' API for location data and React with Deck.gl on the frontend to visualize areas. The platform also integrates real-time real estate data via Datafiniti and models accessibility using the INRIX Drive Time Polygon API"
               learnMoreLink="/hotspots"
               demoLink="https://devpost.com/software/hotspots-xs6inz"
+            />
+          </Col>
+
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={safeBronc}
+              title="SafeBronc"
+              description="SafeBronc is a mobile app designed to enhance safety at events by allowing hosts to create events and track attendees using a QR code system (in development). The app is built using React Native for the frontend, Node.js for the backend, and DigitalOcean to host the database."
+              learnMoreLink="/safebronc"
+              demoLink="https://devpost.com/software/safebronc"
+            />
+          </Col>
+
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={wordScramble}
+              title="Word Scrambling Game"
+              description="Here is a Word Scrambling Game that I created using Rust for my Programming Languages final project."
+              learnMoreLink="/word-scrambling"
+              demoLink="https://www.youtube.com/embed/iMdib4b9BtU?si=Rbql1GAROWk28TiF"
             />
           </Col>
 
