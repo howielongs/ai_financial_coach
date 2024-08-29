@@ -66,7 +66,7 @@ function Experience() {
             iconStyle={{ background: '#8a2be2', color: '#fff' }}
             icon={<FaCode />}
           >
-            <h3 className="vertical-timeline-element-title">Founder</h3>
+            <h3 className="vertical-timeline-element-title">Software Engineer</h3>
             <h4 className="vertical-timeline-element-subtitle">Perfect Fit</h4>
             <p>
               - Founded a fashion software startup that generates personalized outfits using HTML, React, and Node.js
