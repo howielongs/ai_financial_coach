@@ -1,6 +1,7 @@
 import React from "react";
 import Card from "react-bootstrap/Card";
 import { ImPointRight } from "react-icons/im";
+import { TbPoint } from "react-icons/tb";
 
 function AboutCard() {
   return (
@@ -29,18 +30,18 @@ function AboutCard() {
           </p>
           <ul>
             <li className="about-activity">
-              <ImPointRight /> Basketball
+              <TbPoint/> Basketball
             </li>
             <li className="about-activity">
-              <ImPointRight /> Travelling
+            <TbPoint/> Traveling
             </li>
             <li className="about-activity">
-              <ImPointRight /> Fashion
+            <TbPoint/> Fashion
             </li>
           </ul>
 
           <p style={{ color: "rgb(155 126 172)" }}>
-            "Don't limit yourself"{" "}
+            "Do what excites"{" "}
           </p>
           <footer className="blockquote-footer">Luo</footer>
         </blockquote>
