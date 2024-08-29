@@ -2,10 +2,11 @@
 import React from 'react';
 import { VerticalTimeline, VerticalTimelineElement } from 'react-vertical-timeline-component';
 import 'react-vertical-timeline-component/style.min.css';
-import { Container } from 'react-bootstrap';
+import { Container, Image } from 'react-bootstrap';
 import { FaCode, FaGraduationCap } from 'react-icons/fa';
 import { BsStarFill } from 'react-icons/bs';
 import Particle from '../Particle';
+import introCertificate from "../../Assets/intro_db_certificate.png";
 
 
 function Experience() {
@@ -34,6 +35,29 @@ function Experience() {
               Studied computer networks, data structures, and software engineering principles.
             </p>
           </VerticalTimelineElement>
+
+          <VerticalTimelineElement
+            className="vertical-timeline-element--work"
+            contentStyle={{ background: 'rgba(138, 43, 226, 0.2)', color: '#fff', border: '1px solid #8a2be2' }}
+            contentArrowStyle={{ borderRight: '7px solid #8a2be2' }}
+            date="Jul 2024"
+            iconStyle={{ background: '#8a2be2', color: '#fff' }}
+            icon={<FaCode />}
+          >
+            <h3 className="vertical-timeline-element-title">Introduction to Databases Certification</h3>
+            <h4 className="vertical-timeline-element-subtitle">META</h4>
+            <p>
+              - Learned the basics of databases including SQL, NoSQL, and CRUD operations
+            </p>
+            <Image 
+              src={introCertificate} 
+              alt="Introduction to Databases Certificate" 
+              fluid 
+              style={{ marginTop: '15px', maxWidth: '100%', height: 'auto' }}
+            />
+
+          </VerticalTimelineElement>
+
           <VerticalTimelineElement
             className="vertical-timeline-element--work"
             contentStyle={{ background: 'rgba(138, 43, 226, 0.2)', color: '#fff', border: '1px solid #8a2be2' }}
@@ -80,7 +104,7 @@ function Experience() {
             <h3 className="vertical-timeline-element-title">Software Engineer</h3>
             <h4 className="vertical-timeline-element-subtitle">INRIX Hackathon Honorable Mention</h4>
             <p>
-              - Created HotSpots, a full-stack market intelligence tool using React, Node.js, Tailwind CSS, INRIX API's and Google Maps API
+              - Created HotSpots, a full-stack market intelligence tool using React, Node.js, Tailwind CSS, INRIX API's, and Google Maps API
             </p>
             <p> 
               - Achieved an honorable mention in the INRIX Hackathon
