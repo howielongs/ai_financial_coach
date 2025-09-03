@@ -1,0 +1,23 @@
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Node / Vite
+client/node_modules/
+client/dist/
+client/.env
+client/.env.local
+
+# Logs
+*.log
+
+# Misc
+*.sqlite
