@@ -11,15 +11,15 @@ Dough Dash turns raw transactions into friendly, actionable coaching—perfect f
 - **Behavioral Change:** What-If planner with live **On-Track** pill and **$ Saved** counter.
 - **Financial Visibility:** Month KPIs, category/merchant breakdowns, 6-month trend, coffee insight, MoM compare.
 - **Trust & Security:** **PII scan on upload**, **Privacy Mode** (merchant pseudonyms), in-memory storage for the demo.
-- **AI Application:** Rule-based coaching + optional LLM (OpenAI). Anomaly detection via z-score (optional IsolationForest).
+- **AI Application:** Rule-based coaching + optional LLM (OpenAI).
 
 ---
 
 ## Tech Stack
 
-- **Frontend:** React + Vite, Chart.js
+- **Frontend:** React + Vite
 - **Backend:** FastAPI (Python), Pandas / NumPy
-- **Optional AI/ML:** OpenAI API (LLM coach), scikit-learn (IsolationForest)
+- **Optional AI/ML:** OpenAI API (LLM coach)
 
 ---
 
