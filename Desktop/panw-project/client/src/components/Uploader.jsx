@@ -1,11 +1,22 @@
 import React, { useState } from "react";
+import { useOutletContext } from "react-router-dom";        // NEW
 import { Card } from "./UI.jsx";
 import { api } from "../lib/api.js";
 
-export default function Uploader({ onAnyChange }) {
+export default function Uploader() {
+  const { setVersion } = useOutletContext();                // NEW
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+
+  const bump = async () => {                                // NEW
+    try {
+      const h = await api.health();
+      setVersion(h.version || (v => v + 1));
+    } catch {
+      setVersion(v => v + 1);
+    }
+  };
 
   const onChange = async (e) => {
     const file = e.target.files?.[0];
@@ -14,7 +25,7 @@ export default function Uploader({ onAnyChange }) {
     try {
       const res = await api.uploadCSV(file);
       setMsg(`Uploaded ${Number(res.rows || 0).toLocaleString()} rows ✅`);
-      onAnyChange?.();
+      await bump();                                         // NEW
     } catch (e) {
       setErr(String(e.message || e));
     } finally {
@@ -25,7 +36,7 @@ export default function Uploader({ onAnyChange }) {
 
   const reset = async () => {
     setMsg(""); setErr(""); setBusy(true);
-    try { await api.resetSample(); setMsg("Reset to sample data ✅"); onAnyChange?.(); }
+    try { await api.resetSample(); setMsg("Reset to sample data ✅"); await bump(); }   // NEW
     catch (e) { setErr(String(e.message || e)); }
     finally { setBusy(false); }
   };
@@ -33,7 +44,7 @@ export default function Uploader({ onAnyChange }) {
   const clear = async () => {
     if (!window.confirm("This removes all data from memory for this demo. Continue?")) return;
     setMsg(""); setErr(""); setBusy(true);
-    try { await api.clearData(); setMsg("Cleared data ✅"); onAnyChange?.(); }
+    try { await api.clearData(); setMsg("Cleared data ✅"); await bump(); }             // NEW
     catch (e) { setErr(String(e.message || e)); }
     finally { setBusy(false); }
   };

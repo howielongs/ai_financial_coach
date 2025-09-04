@@ -1,19 +1,40 @@
 import React from "react";
 import { Line } from "react-chartjs-2";
 import { ensureChartSetup } from "../../lib/chartSetup.js";
-import { Card } from "../UI.jsx";
 
-export default function TrendsLine({ trends }) {
+export default function TrendsLine({ labels = [], values = [] }) {
   ensureChartSetup();
-  const data = trends ? {
-    labels: trends.months || [],
-    datasets: [{ label: "Total Spend ($)", data: trends.totals || [], borderWidth: 2, tension: 0.25 }],
-  } : null;
+
+  const data = {
+    labels,
+    datasets: [
+      {
+        label: "Total Spend ($)",
+        data: values.map(Number),
+        tension: 0.3,
+        fill: true,
+        borderWidth: 2,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: { y: { beginAtZero: true } },
+    plugins: {
+      legend: { display: true, position: "bottom" },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => `$${Number(ctx.raw).toLocaleString()}`,
+        },
+      },
+    },
+  };
 
   return (
-    <Card title="Spending Trend (Last 6 Months)" style={{ marginTop: 20 }}>
-      {data ? <Line data={data} options={{ plugins: { legend: { display: true } }, scales: { y: { beginAtZero: true } } }} />
-            : <p>Loading…</p>}
-    </Card>
+    <div style={{ height: 300 }}>
+      <Line data={data} options={options} />
+    </div>
   );
 }

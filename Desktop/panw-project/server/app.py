@@ -1,28 +1,27 @@
 from __future__ import annotations
 
 import io
-from datetime import datetime, timedelta
-from typing import List, Dict, Any, Tuple, Optional
+import os
+import re
+import hashlib
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, Query, UploadFile, File, HTTPException
+from fastapi import Body, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-import hashlib
-import os
-
-from fastapi import Body
-import logging
 from fastapi.responses import JSONResponse
-import re
 
-
+# -----------------------------------------------------------------------------
+# App & CORS
+# -----------------------------------------------------------------------------
 app = FastAPI(title="Smart Financial Coach API", version="0.1.0")
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("smart-fin-coach")
 
-# Allow your Vite dev server to call the API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -31,9 +30,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -----------------------------
-# Mock data + utilities
-# -----------------------------
+# -----------------------------------------------------------------------------
+# Mock data & constants
+# -----------------------------------------------------------------------------
 CATEGORY_KEYWORDS = {
     "Coffee": ["STARBUCKS", "PEET", "COFFEE", "DUTCH BROS"],
     "Groceries": ["SAFEWAY", "WHOLE FOODS", "TRADER JOE", "KROGER", "RALPHS", "SPROUTS"],
@@ -46,12 +45,29 @@ CATEGORY_KEYWORDS = {
     "Income": ["PAYROLL", "DIRECT DEPOSIT", "VENMO CREDIT", "ZELLE CREDIT", "REFUND"],
 }
 
+# -----------------------------------------------------------------------------
+# Data versioning for client refresh
+# -----------------------------------------------------------------------------
+DATAFRAME: Optional[pd.DataFrame] = None
+DATA_VERSION = 1
+LAST_UPDATED = datetime.now(timezone.utc).isoformat()
+
+
+def _bump_version():
+    global DATA_VERSION, LAST_UPDATED
+    DATA_VERSION += 1
+    LAST_UPDATED = datetime.now(timezone.utc).isoformat()
+
+
+# -----------------------------------------------------------------------------
+# Generators & transforms
+# -----------------------------------------------------------------------------
 def generate_sample_transactions(n_days: int = 90, seed: int = 7) -> pd.DataFrame:
     """
-    Creates ~n_days of mock transactions.
+    Create ~n_days of mock transactions.
     - Expenses: positive amounts
     - Income (e.g., PAYROLL): negative average, preserved as negative
-    Fixes: never pass a negative stddev to rng.normal (avoid ValueError: scale < 0).
+    Fix: never pass a negative stddev to rng.normal (avoid ValueError: scale < 0).
     """
     rng = np.random.default_rng(seed)
     today = datetime.utcnow().date()
@@ -71,18 +87,13 @@ def generate_sample_transactions(n_days: int = 90, seed: int = 7) -> pd.DataFram
 
     for d in dates:
         for merchant, avg_amt, freq in merchants:
-            # rough monthly->daily probability
-            p = min(0.9, freq / 30.0)
+            p = min(0.9, freq / 30.0)  # rough monthly->daily probability
             if rng.random() < p:
                 mu = abs(avg_amt)
                 sigma = max(1.0, mu * 0.15)  # std must be >= 0
-                sample_mag = max(1.0, rng.normal(mu, sigma))  # magnitude only
-                amount = -sample_mag if avg_amt < 0 else sample_mag  # preserve sign
-                rows.append({
-                    "date": d.isoformat(),
-                    "merchant": merchant,
-                    "amount": float(round(amount, 2)),
-                })
+                sample_mag = max(1.0, rng.normal(mu, sigma))
+                amount = -sample_mag if avg_amt < 0 else sample_mag
+                rows.append({"date": d.isoformat(), "merchant": merchant, "amount": float(round(amount, 2))})
 
     # Add a couple anomalies (expenses, positive)
     rows.append({"date": (today - timedelta(days=7)).isoformat(), "merchant": "TARGET", "amount": 450.0})
@@ -92,14 +103,13 @@ def generate_sample_transactions(n_days: int = 90, seed: int = 7) -> pd.DataFram
     df["date"] = pd.to_datetime(df["date"])
     return df.sort_values("date")
 
-# Global dataframe (in-memory for demo)
-DATAFRAME: Optional[pd.DataFrame] = None
 
 def set_dataframe(df: pd.DataFrame):
     """Validate and set the global DATAFRAME."""
     global DATAFRAME
     if df is None or df.empty:
         raise ValueError("Empty dataset.")
+
     # Case-insensitive normalize
     rename = {c: c.lower() for c in df.columns}
     df = df.rename(columns=rename)
@@ -113,10 +123,15 @@ def set_dataframe(df: pd.DataFrame):
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
     df = df.dropna(subset=["date", "merchant", "amount"]).sort_values("date")
     DATAFRAME = df
+    _bump_version()
+
 
 # Initialize with mock data on startup
 set_dataframe(generate_sample_transactions())
 
+# -----------------------------------------------------------------------------
+# Feature helpers
+# -----------------------------------------------------------------------------
 def categorize(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     cats = []
@@ -131,10 +146,12 @@ def categorize(df: pd.DataFrame) -> pd.DataFrame:
     out["category"] = cats
     return out
 
+
 def monthly_bucket(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     out["year_month"] = out["date"].dt.to_period("M").astype(str)
     return out
+
 
 def split_income_expense(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -144,11 +161,10 @@ def split_income_expense(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     income_mask = (df["amount"] < 0) | (df.get("category", "") == "Income")
     income = df[income_mask].copy()
     expense = df[~income_mask].copy()
-
-    # normalize signs for charts
     expense["amount"] = expense["amount"].abs()
     income["amount"] = income["amount"].abs()
     return income, expense
+
 
 def detect_subscriptions(expense: pd.DataFrame) -> pd.DataFrame:
     """
@@ -160,7 +176,6 @@ def detect_subscriptions(expense: pd.DataFrame) -> pd.DataFrame:
             return pd.DataFrame(columns=["merchant", "charge", "months", "count"])
 
         exp = expense.copy()
-        # guard types
         exp["date"] = pd.to_datetime(exp["date"], errors="coerce")
         exp = exp.dropna(subset=["date", "merchant", "amount"])
         if exp.empty:
@@ -168,12 +183,7 @@ def detect_subscriptions(expense: pd.DataFrame) -> pd.DataFrame:
 
         exp["year_month"] = exp["date"].dt.to_period("M").astype(str)
 
-        # per-merchant per-month median amount
-        grouped = (
-            exp.groupby(["merchant", "year_month"])["amount"]
-               .median()
-               .reset_index()
-        )
+        grouped = exp.groupby(["merchant", "year_month"])["amount"].median().reset_index()
         if grouped.empty:
             return pd.DataFrame(columns=["merchant", "charge", "months", "count"])
 
@@ -183,13 +193,11 @@ def detect_subscriptions(expense: pd.DataFrame) -> pd.DataFrame:
             amounts = g["amount"].astype(float).values
             months = g["year_month"].astype(str).values
 
-            # greedy bucketing by ~same amount
             buckets = []
             for m, a in zip(months, amounts):
                 placed = False
                 for b in buckets:
                     ref = b["ref"]
-                    # within $2 absolute or 10% relative
                     if abs(a - ref) <= 2 or (ref > 0 and abs(a - ref) / ref <= 0.10):
                         b["months"].append(m)
                         b["amts"].append(a)
@@ -213,14 +221,13 @@ def detect_subscriptions(expense: pd.DataFrame) -> pd.DataFrame:
             return pd.DataFrame(columns=["merchant", "charge", "months", "count"])
         return pd.DataFrame(subs).sort_values(["count", "merchant"], ascending=[False, True])
 
-    except Exception:
-        # absolute safety net: never throw from detector
+    except Exception as e:
+        log.warning("detect_subscriptions failed: %s", e)
         return pd.DataFrame(columns=["merchant", "charge", "months", "count"])
 
+
 def anomaly_detection(expense: pd.DataFrame) -> pd.DataFrame:
-    """
-    Simple z-score per merchant (|z| >= 2.5).
-    """
+    """Simple z-score per merchant (|z| >= 2.5)."""
     if expense.empty:
         return pd.DataFrame(columns=["date", "merchant", "amount", "z_score"])
 
@@ -233,20 +240,17 @@ def anomaly_detection(expense: pd.DataFrame) -> pd.DataFrame:
     exp["z"] = exp.groupby("merchant")["amount"].transform(zscores)
     flagged = exp[exp["z"].abs() >= 2.5].copy()
     flagged.rename(columns={"z": "z_score"}, inplace=True)
-    return flagged[["date", "merchant", "amount", "z_score"]].sort_values(
-        ["date", "z_score"], ascending=[False, False]
-    )
+    return flagged[["date", "merchant", "amount", "z_score"]].sort_values(["date", "z_score"], ascending=[False, False])
+
 
 def coffee_insight(expense: pd.DataFrame, period: str) -> Dict[str, Any]:
     exp = monthly_bucket(expense)
     month_df = exp[exp["year_month"] == period]
     coffee_spend = float(month_df.loc[month_df["category"] == "Coffee", "amount"].sum())
     yearly_save = coffee_spend * 0.60 * 12.0
-    msg = (
-        f"You've spent ${coffee_spend:.2f} on coffee in {period}. "
-        f"Brewing at home a bit more could save ~${yearly_save:,.0f}/yr."
-    )
+    msg = f"You've spent ${coffee_spend:.2f} on coffee in {period}. Brewing at home a bit more could save ~${yearly_save:,.0f}/yr."
     return {"coffee_spend": coffee_spend, "message": msg}
+
 
 def goal_forecast(income_mo: float, expense_mo: float, goal_amt: float, months: int) -> Dict[str, Any]:
     surplus = max(0.0, income_mo - expense_mo)
@@ -262,10 +266,11 @@ def goal_forecast(income_mo: float, expense_mo: float, goal_amt: float, months: 
         "message": ("You're on track!" if on_track else f"Need about ${need_per_mo:,.0f}/mo to hit ${goal_amt:,.0f} in {months} months.")
     }
 
-# --- helper: build last N calendar months ending at a reference date ---
-def _month_span(end_ts: pd.Timestamp, n: int) -> list[str]:
+
+def _month_span(end_ts: pd.Timestamp, n: int) -> List[str]:
     end = pd.Timestamp(end_ts).to_period("M")
-    return [(end - i).strftime("%Y-%m") for i in range(n-1, -1, -1)]
+    return [(end - i).strftime("%Y-%m") for i in range(n - 1, -1, -1)]
+
 
 def last_n_months_expense(expense_df: pd.DataFrame, months: int = 6) -> pd.DataFrame:
     """
@@ -278,7 +283,7 @@ def last_n_months_expense(expense_df: pd.DataFrame, months: int = 6) -> pd.DataF
 
     month_order = _month_span(anchor, months)
     if expense_df is None or expense_df.empty:
-        return pd.DataFrame({"year_month": month_order, "total": [0.0]*months})
+        return pd.DataFrame({"year_month": month_order, "total": [0.0] * months})
 
     dfm = expense_df.copy()
     dfm["year_month"] = dfm["date"].dt.to_period("M").astype(str)
@@ -293,7 +298,6 @@ def category_spend_this_and_prev(expense_df: pd.DataFrame, current_period: str) 
         return pd.DataFrame(columns=["category", "this_month", "prev_month", "delta"])
     dfm = expense_df.copy()
     dfm["year_month"] = dfm["date"].dt.to_period("M").astype(str)
-    # find previous month present in data
     months_sorted = sorted(dfm["year_month"].unique())
     if current_period not in months_sorted or len(months_sorted) < 2:
         return pd.DataFrame(columns=["category", "this_month", "prev_month", "delta"])
@@ -313,6 +317,7 @@ def category_spend_this_and_prev(expense_df: pd.DataFrame, current_period: str) 
         rows.append({"category": c, "this_month": t, "prev_month": p, "delta": t - p})
     return pd.DataFrame(rows).sort_values("this_month", ascending=False)
 
+
 def suggestion_engine(expense_df: pd.DataFrame, needed_per_month: float) -> List[Dict[str, Any]]:
     """Greedily suggest small trims (10–20%) from biggest categories until the monthly gap is covered."""
     if needed_per_month <= 0 or expense_df.empty:
@@ -328,37 +333,35 @@ def suggestion_engine(expense_df: pd.DataFrame, needed_per_month: float) -> List
     for cat, amt in cat_sum.items():
         if remaining <= 0:
             break
-        # Suggest a cut between 10% and 20% depending on size
         pct = 0.2 if amt >= 200 else 0.1
         cut = min(amt * pct, remaining)
-        if cut >= 5:  # ignore tiny cuts
+        if cut >= 5:
             suggestions.append({"category": cat, "current": round(float(amt), 2), "suggested_cut": round(float(cut), 2)})
             remaining -= cut
     return suggestions
 
+
 def privacy_name(merchant: str) -> str:
-    """Pseudonymize a merchant deterministically (no PII exposure in demos)."""
     h = hashlib.sha1(merchant.encode()).hexdigest()[:6].upper()
     return f"Merchant-{h}"
 
-def maybe_privacy_map_name(merchant: str, privacy: bool) -> str:
-    return merchant if not privacy else privacy_name(merchant)
 
 def maybe_privacy_map_dict(d: Dict[str, float], privacy: bool) -> Dict[str, float]:
     if not privacy:
         return d
-    return {maybe_privacy_map_name(k, True): v for k, v in d.items()}
+    return {privacy_name(k): v for k, v in d.items()}
+
 
 def _compose_context(income_monthly: float, goal_amount: float, months_to_goal: int, privacy: bool):
-    """Builds a compact context object from your existing pipelines."""
+    """Build a compact context object from existing pipelines."""
     if DATAFRAME is None or DATAFRAME.empty:
         return {
             "period": None, "expense_total": 0.0, "by_category": {}, "top_merchants": {},
             "coffee_msg": "", "forecast": goal_forecast(income_monthly, 0.0, goal_amount, months_to_goal),
-            "suggestions": [], "anomaly_count": 0
+            "suggestions": [], "delta_categories": [], "anomaly_count": 0
         }
     df = categorize(DATAFRAME)
-    income_df, expense_df = split_income_expense(df)
+    _, expense_df = split_income_expense(df)
     dfm = monthly_bucket(expense_df)
     months = sorted(dfm["year_month"].unique())
     cur = months[-1] if months else datetime.utcnow().strftime("%Y-%m")
@@ -367,11 +370,8 @@ def _compose_context(income_monthly: float, goal_amount: float, months_to_goal: 
     by_cat = month_expense.groupby("category")["amount"].sum().sort_values(ascending=False).to_dict()
     top_merch = month_expense.groupby("merchant")["amount"].sum().sort_values(ascending=False).head(10).to_dict()
     if privacy:
-        # reuse the privacy pseudonymization
-        def _mask(m): return f"Merchant-{hashlib.sha1(m.encode()).hexdigest()[:6].upper()}"
-        top_merch = {_mask(k): v for k, v in top_merch.items()}
+        top_merch = {privacy_name(k): v for k, v in top_merch.items()}
     coffee = coffee_insight(expense_df, cur)
-    # compare + suggestions
     cmp = category_spend_this_and_prev(expense_df, cur)
     fc = goal_forecast(income_monthly, total_expense, goal_amount, months_to_goal)
     need = float(fc.get("need_per_month", 0.0)) if not fc.get("on_track", False) else 0.0
@@ -388,28 +388,23 @@ def _compose_context(income_monthly: float, goal_amount: float, months_to_goal: 
         "anomaly_count": 0 if anoms.empty else int(len(anoms))
     }
 
-def _rule_based_coach(ctx: dict) -> list[str]:
-    """Deterministic, friendly messages (works offline)."""
+
+def _rule_based_coach(ctx: dict) -> List[str]:
     out = []
-    # Goal status
     if ctx["forecast"]["on_track"]:
-        out.append(f"🎯 You’re on track to hit ${ctx['forecast']['surplus'] * (ctx['forecast'].get('months', 0) or 1):,.0f} saved by plan—keep it steady.")
+        out.append("🎯 Great pace—your plan looks on track. Keep habits steady and avoid new recurring spend.")
     else:
         need = ctx["forecast"]["need_per_month"]
-        out.append(f"🧭 To reach your goal, trim about ${need:,.0f}/mo. The What-If panel shows where to take it from.")
-    # Coffee nudge
-    if "coffee" in ctx["coffee_msg"].lower() or "coffee" in " ".join(ctx.get("by_category", {}).keys()).lower():
+        out.append(f"🧭 To hit your goal, trim about ${need:,.0f}/mo. The What-If panel shows exactly where to take it from.")
+    if "coffee" in ctx["coffee_msg"].lower():
         out.append(f"☕ {ctx['coffee_msg']}")
-    # Category trims
     if ctx["suggestions"]:
         s = ctx["suggestions"][0]
         out.append(f"✂️ Try cutting **{s['category']}** by ${s['suggested_cut']:,.0f}/mo (currently ${s['current']:,.0f}).")
-    # Anomaly hygiene
     if ctx["anomaly_count"] > 0:
         out.append(f"🚨 Spotted {ctx['anomaly_count']} unusual charges recently—give Anomalies a quick review.")
-    # Visibility cue
-    out.append(f"📈 You’ve spent ${ctx['expense_total']:,.0f} in {ctx['period']}. Category and trend charts show exactly where it went.")
     return out[:4]
+
 
 def _try_llm(system_prompt: str, user_prompt: str) -> Optional[str]:
     """
@@ -423,48 +418,38 @@ def _try_llm(system_prompt: str, user_prompt: str) -> Optional[str]:
         return None
     try:
         try:
-            # OpenAI SDK v1.x
             from openai import OpenAI
             client = OpenAI(api_key=key)
             model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
             resp = client.chat.completions.create(
                 model=model,
                 temperature=0.6,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             )
             return (resp.choices[0].message.content or "").strip()
         except ImportError:
-            # Legacy openai<=0.28 (best-effort)
             import openai  # type: ignore
             openai.api_key = key
             model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
             resp = openai.ChatCompletion.create(
                 model=model,
                 temperature=0.6,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             )
             return (resp["choices"][0]["message"]["content"] or "").strip()
     except Exception as e:
         log.warning("LLM call failed; falling back to rules: %s", e)
         return None
 
-PII_PATTERNS = [
-    re.compile(r"\b(?:\d[ -]*?){13,16}\b"),  # crude CCN-like
-    re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),    # US SSN-like
-]
 
+# -----------------------------------------------------------------------------
+# PII scan
+# -----------------------------------------------------------------------------
 RE_SSN = re.compile(r"\b(?!000|666|9\d{2})\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b")
 
+
 def _luhn_ok(num: str) -> bool:
-    """Return True if the numeric string passes the Luhn check (credit-card sanity)."""
-    total = 0
-    alt = False
+    total, alt = 0, False
     for ch in num[::-1]:
         if not ch.isdigit():
             return False
@@ -477,7 +462,8 @@ def _luhn_ok(num: str) -> bool:
         alt = not alt
     return (total % 10) == 0
 
-def detect_pii(df: pd.DataFrame) -> list[str]:
+
+def detect_pii(df: pd.DataFrame) -> List[str]:
     """
     Scan non-required columns row-wise for SSN/CCN-like values.
     Skips 'date' and 'amount' to avoid false positives.
@@ -485,7 +471,7 @@ def detect_pii(df: pd.DataFrame) -> list[str]:
     """
     required = {"date", "merchant", "amount"}
     flagged = set()
-    N = min(len(df), 2000)  # cap work for big files
+    N = min(len(df), 2000)
 
     for col in df.columns:
         col_l = str(col).lower()
@@ -496,23 +482,29 @@ def detect_pii(df: pd.DataFrame) -> list[str]:
             s = v.strip()
             if not s:
                 continue
-            # SSN pattern (###-##-####) with basic invalid ranges filtered
             if RE_SSN.search(s):
                 flagged.add(col)
                 break
-            # CCN check via Luhn on 13–16 digits inside the cell
             digits = re.sub(r"\D", "", s)
             if 13 <= len(digits) <= 16 and _luhn_ok(digits):
                 flagged.add(col)
                 break
     return sorted(flagged)
 
-# -----------------------------
-# API Endpoints
-# -----------------------------
+
+# -----------------------------------------------------------------------------
+# API endpoints
+# -----------------------------------------------------------------------------
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "records": 0 if DATAFRAME is None else int(len(DATAFRAME))}
+    global DATAFRAME, DATA_VERSION, LAST_UPDATED
+    return {
+        "status": "ok",
+        "records": 0 if DATAFRAME is None else int(len(DATAFRAME)),
+        "version": int(DATA_VERSION),
+        "last_updated": LAST_UPDATED,
+    }
+
 
 @app.post("/api/upload")
 async def upload_csv(file: UploadFile = File(...)):
@@ -530,19 +522,42 @@ async def upload_csv(file: UploadFile = File(...)):
         if bad_cols:
             raise HTTPException(
                 status_code=400,
-                detail=f"Upload blocked: possible PII detected in columns {bad_cols}. Remove sensitive data for this demo."
+                detail=f"Upload blocked: possible PII detected in columns {bad_cols}. Remove sensitive data for this demo.",
             )
 
     set_dataframe(df)
-    return {"ok": True, "rows": int(len(df))}
+    return {"ok": True, "rows": int(len(df)), "version": DATA_VERSION}
 
 
+@app.post("/api/reset")
+def reset_to_sample():
+    set_dataframe(generate_sample_transactions())
+    return {"ok": True, "rows": int(len(DATAFRAME)), "version": DATA_VERSION}
+
+
+@app.post("/api/clear")
+def clear_data():
+    """Clear uploaded data from memory (demo privacy control)."""
+    global DATAFRAME
+    DATAFRAME = pd.DataFrame(columns=["date", "merchant", "amount"])
+    _bump_version()
+    return {"ok": True, "rows": 0, "version": DATA_VERSION}
+
+
+@app.get("/api/transactions")
+def get_transactions(privacy: bool = Query(False)):
+    if DATAFRAME is None:
+        return []
+    rows = DATAFRAME.copy()
+    if privacy:
+        rows["merchant"] = rows["merchant"].apply(privacy_name)
+    return rows.to_dict(orient="records")
 
 
 @app.get("/api/summary")
 def get_summary(privacy: bool = Query(False)):
     if DATAFRAME is None or DATAFRAME.empty:
-        return {"period": None, "total_expense_month": 0, "by_category": {}, "top_merchants": {}, "coffee": {}}
+        return {"period": None, "total_expense_month": 0, "by_category": {}, "top_merchants": {}, "coffee": {}, "privacy": privacy}
 
     df = categorize(DATAFRAME)
     _, expense_df = split_income_expense(df)
@@ -565,6 +580,7 @@ def get_summary(privacy: bool = Query(False)):
         "privacy": privacy,
     }
 
+
 @app.get("/api/subscriptions")
 def get_subscriptions(privacy: bool = Query(False)):
     try:
@@ -584,13 +600,8 @@ def get_subscriptions(privacy: bool = Query(False)):
         return out
 
     except Exception as e:
-        # Never fail the demo UI; log if you already set up a logger
-        try:
-            log.exception("subscriptions failed: %s", e)  # if 'log' exists
-        except Exception:
-            pass
+        log.exception("subscriptions failed: %s", e)
         return []
-
 
 
 @app.get("/api/anomalies")
@@ -602,13 +613,54 @@ def get_anomalies(privacy: bool = Query(False)):
     flagged = anomaly_detection(expense_df).copy()
     if not flagged.empty:
         flagged["date"] = flagged["date"].dt.strftime("%Y-%m-%d")
-    
     out = flagged.to_dict(orient="records")
     if privacy:
         for r in out:
             r["merchant"] = privacy_name(r["merchant"])
     return out
-    
+
+
+@app.get("/api/anomalies_ml")
+def get_anomalies_ml():
+    """
+    Optional ML-based anomalies using IsolationForest.
+    Returns {} if scikit-learn not installed or not enough data.
+    """
+    try:
+        from sklearn.ensemble import IsolationForest  # type: ignore
+    except Exception:
+        return {"available": False, "reason": "scikit-learn not installed"}
+
+    if DATAFRAME is None or DATAFRAME.empty:
+        return {"available": True, "anomalies": []}
+
+    df = categorize(DATAFRAME)
+    _, expense_df = split_income_expense(df)
+    if expense_df.empty:
+        return {"available": True, "anomalies": []}
+
+    # Simple per-merchant model
+    rows = []
+    for merch, g in expense_df.groupby("merchant"):
+        X = g[["amount"]].values
+        if len(X) < 8:
+            continue
+        try:
+            iso = IsolationForest(random_state=0, contamination="auto")
+            y = iso.fit_predict(X)
+            scores = iso.decision_function(X)
+            mask = y == -1
+            out = g.loc[mask].copy()
+            out["score"] = scores[mask]
+            if not out.empty:
+                out["date"] = out["date"].dt.strftime("%Y-%m-%d")
+                for _, r in out.iterrows():
+                    rows.append({"date": r["date"], "merchant": merch, "amount": float(r["amount"]), "score": float(r["score"])})
+        except Exception:
+            continue
+
+    return {"available": True, "anomalies": sorted(rows, key=lambda r: r["score"])[:100]}
+
 
 @app.get("/api/forecast")
 def get_forecast(
@@ -628,7 +680,7 @@ def get_forecast(
     total_expense = float(month_expense["amount"].sum())
     return goal_forecast(income_monthly, total_expense, goal_amount, months_to_goal)
 
-# --- in /api/trends, keep it aligned to the dense month_order ---
+
 @app.get("/api/trends")
 def get_trends(months: int = Query(6, ge=2, le=24)):
     if DATAFRAME is None:
@@ -638,7 +690,6 @@ def get_trends(months: int = Query(6, ge=2, le=24)):
 
     totals = last_n_months_expense(expense_df, months=months)  # dense months
     month_order = list(totals["year_month"])
-    # per-category sums
     by_cat_long = (
         expense_df.assign(year_month=expense_df["date"].dt.to_period("M").astype(str))
         .groupby(["year_month", "category"])["amount"]
@@ -650,12 +701,7 @@ def get_trends(months: int = Query(6, ge=2, le=24)):
         m2v = {row["year_month"]: float(row["amount"]) for _, row in g.iterrows()}
         out[cat] = [m2v.get(m, 0.0) for m in month_order]
 
-    return {
-        "months": month_order,
-        "totals": [float(x) for x in totals["total"]],
-        "by_category": out
-    }
-
+    return {"months": month_order, "totals": [float(x) for x in totals["total"]], "by_category": out}
 
 
 @app.get("/api/compare")
@@ -669,25 +715,19 @@ def compare_and_suggest(
 
     df = categorize(DATAFRAME)
     _, expense_df = split_income_expense(df)
-
-    # current month and totals
     dfm = expense_df.assign(year_month=expense_df["date"].dt.to_period("M").astype(str))
     months_sorted = sorted(dfm["year_month"].unique())
     cur = months_sorted[-1]
     cur_total = float(dfm.loc[dfm["year_month"] == cur, "amount"].sum())
 
-    # previous month (if any)
     prev_total = 0.0
     if len(months_sorted) >= 2:
         prev = months_sorted[-2]
         prev_total = float(dfm.loc[dfm["year_month"] == prev, "amount"].sum())
 
-    # category-level deltas
     cat_delta = category_spend_this_and_prev(expense_df, cur)
     cat_rows = cat_delta.to_dict(orient="records")
 
-    # gap and suggestions
-    # (re-use goal_forecast to compute needed_per_month)
     forecast = goal_forecast(income_monthly, cur_total, goal_amount, months_to_goal)
     needed = float(forecast.get("need_per_month", 0.0)) if not forecast.get("on_track", False) else 0.0
     suggestions = suggestion_engine(expense_df, needed)
@@ -702,22 +742,7 @@ def compare_and_suggest(
         "suggestions": suggestions,
         "forecast": forecast,
     }
-@app.post("/api/clear")
-def clear_data():
-    """Clear uploaded data from memory (demo privacy control)."""
-    global DATAFRAME
-    DATAFRAME = pd.DataFrame(columns=["date", "merchant", "amount"])
-    return {"ok": True, "rows": 0}
 
-@app.get("/api/transactions")
-def get_transactions(privacy: bool = Query(False)):
-    if DATAFRAME is None:
-        return []
-    rows = DATAFRAME.copy()
-    if privacy:
-        rows = rows.copy()
-        rows["merchant"] = rows["merchant"].apply(privacy_name)
-    return rows.to_dict(orient="records")
 
 @app.get("/api/score")
 def get_score(income_monthly: float = Query(1800)):
@@ -725,33 +750,26 @@ def get_score(income_monthly: float = Query(1800)):
         return {"score": 50, "signals": [], "explain": "No data — neutral score."}
 
     df = categorize(DATAFRAME)
-    income_df, expense_df = split_income_expense(df)
+    _, expense_df = split_income_expense(df)
 
-    # Current month basics
     dfm = expense_df.assign(year_month=expense_df["date"].dt.to_period("M").astype(str))
     months_sorted = sorted(dfm["year_month"].unique())
     cur = months_sorted[-1]
     cur_total = float(dfm.loc[dfm["year_month"] == cur, "amount"].sum())
     savings_rate = 0.0 if income_monthly <= 0 else max(0.0, min(1.0, (income_monthly - cur_total) / income_monthly))
 
-    # Volatility over last 6 months
-    totals = (
-        dfm.groupby("year_month")["amount"].sum().reset_index().sort_values("year_month")
-    )
+    totals = dfm.groupby("year_month")["amount"].sum().reset_index().sort_values("year_month")
     last6 = totals.tail(6)["amount"]
     vol = 0.0
     if len(last6) >= 2 and last6.mean() > 1e-6:
-        vol = float(last6.std(ddof=0) / last6.mean())  # coefficient of variation
+        vol = float(last6.std(ddof=0) / last6.mean())
 
-    # Subscription burden (sum recurring charges that include current month)
     subs = detect_subscriptions(expense_df)
     subs_in_cur = 0.0
     if not subs.empty:
         subs_in_cur = float(subs.loc[subs["months"].str.contains(cur, na=False), "charge"].sum())
-
     recurring_ratio = 0.0 if cur_total <= 0 else min(1.0, subs_in_cur / cur_total)
 
-    # Anomaly rate (count in current month / transactions in current month)
     anoms = anomaly_detection(expense_df)
     anoms_cur = 0
     tx_cur = len(dfm[dfm["year_month"] == cur])
@@ -759,8 +777,6 @@ def get_score(income_monthly: float = Query(1800)):
         anoms_cur = int((anoms.assign(year_month=anoms["date"].dt.to_period("M").astype(str))["year_month"] == cur).sum())
     anomaly_rate = 0.0 if tx_cur == 0 else anoms_cur / tx_cur
 
-    # Score combine (weights tuned for feel)
-    # Higher savings_rate ↑, lower vol/recurring/anomaly ↓
     raw = (
         0.55 * savings_rate +
         0.15 * (1.0 - min(vol, 1.0)) +
@@ -777,7 +793,6 @@ def get_score(income_monthly: float = Query(1800)):
     ]
     return {"score": score, "period": cur, "signals": signals}
 
-from fastapi import Body
 
 @app.post("/api/whatif")
 def what_if(
@@ -795,10 +810,8 @@ def what_if(
     cur = dfm["year_month"].max()
     cur_exp = dfm[dfm["year_month"] == cur]
 
-    # Current spend by category
     by_cat = cur_exp.groupby("category")["amount"].sum().to_dict()
 
-    # Apply cuts but don't exceed current spend per category
     applied = {}
     reduced_total = 0.0
     for cat, cur_amt in by_cat.items():
@@ -813,6 +826,7 @@ def what_if(
     forecast = goal_forecast(income_monthly, new_expense, goal_amount, months_to_goal)
     return {"period": cur, "current_expense": round(cur_total, 2), "new_expense": round(new_expense, 2), "applied": applied, "forecast": forecast}
 
+
 @app.get("/api/coach")
 def api_coach(
     income_monthly: float = Query(1800),
@@ -822,8 +836,6 @@ def api_coach(
 ):
     try:
         ctx = _compose_context(income_monthly, goal_amount, months_to_goal, privacy)
-
-        # Default to rule-based; only try LLM if a key exists
         llm_text = None
         if os.getenv("OPENAI_API_KEY"):
             system = (
@@ -839,17 +851,13 @@ def api_coach(
 
     except Exception as e:
         log.exception("coach endpoint failed")
-        # Safe minimal context + rule-based fallback so we never 500
         safe_ctx = {
             "period": None, "expense_total": 0.0, "by_category": {}, "top_merchants": {},
             "coffee_msg": "", "forecast": {"on_track": False, "surplus": 0, "gap": 0, "need_per_month": 0, "message": "No data"},
             "suggestions": [], "delta_categories": [], "anomaly_count": 0
         }
         fallback = _rule_based_coach(safe_ctx)
-        return JSONResponse(
-            status_code=200,
-            content={"llm_note": None, "nudges": fallback, "context": safe_ctx, "error": str(e)},
-        )
+        return JSONResponse(status_code=200, content={"llm_note": None, "nudges": fallback, "context": safe_ctx, "error": str(e)})
 
 
 @app.post("/api/ask")
@@ -863,7 +871,6 @@ def api_ask(
     question = (payload.get("question") or "").strip()
     ctx = _compose_context(income_monthly, goal_amount, months_to_goal, privacy)
 
-    # Try LLM first
     system = ("You answer questions about the user's spending using the JSON provided. "
               "If data isn’t available, say so briefly. Be specific and concise.")
     user = f"Question: {question}\nData:\n{ctx}"
@@ -871,7 +878,6 @@ def api_ask(
     if llm:
         return {"answer": llm, "source": "llm"}
 
-    # Fallback: simple keyword QA
     q = question.lower()
     if "coffee" in q:
         return {"answer": ctx["coffee_msg"], "source": "rule"}
@@ -886,7 +892,19 @@ def api_ask(
         return {"answer": f"{ctx['anomaly_count']} unusual transactions flagged—check the Anomalies table.", "source": "rule"}
     return {"answer": "I couldn’t find that in the demo data. Try asking about coffee, total spend, subscriptions, anomalies, or your goal.", "source": "rule"}
 
-@app.post("/api/reset")
-def reset_to_sample():
-    set_dataframe(generate_sample_transactions())
-    return {"ok": True, "rows": int(len(DATAFRAME))}
+
+@app.get("/api/cancel_draft")
+def cancel_draft(merchant: str = Query(...), charge: float = Query(0.0)):
+    """
+    Produce a copyable email template to cancel a subscription/gray charge.
+    """
+    masked = privacy_name(merchant)
+    body = (
+        f"Subject: Cancel Subscription - {merchant}\n\n"
+        f"Hello {merchant} Support,\n\n"
+        f"I'd like to cancel my subscription effective immediately. "
+        f"My recent charge was approximately ${charge:,.2f}. "
+        f"Please confirm cancellation and any refund eligibility.\n\n"
+        f"Thank you,\nA Customer"
+    )
+    return {"merchant": masked, "raw_merchant": merchant, "charge": round(charge, 2), "email": body}
