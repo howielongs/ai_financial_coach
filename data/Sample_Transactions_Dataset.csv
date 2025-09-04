@@ -1,0 +1,51 @@
+Date,Merchant,Category,Amount
+2024-02-24,Uber,Transport,26.42
+2024-05-30,Local Cafe,Coffee,3.52
+2024-01-16,Lyft,Entertainment,22.72
+2024-03-21,Safeway,Groceries,76.83
+2024-01-24,Netflix,Shopping,34.55
+2024-05-03,Dunkin',Coffee,5.26
+2024-05-05,Netflix,Transport,12.76
+2024-01-29,Netflix,Transport,36.07
+2024-06-19,Amazon,Groceries,55.33
+2024-02-19,Netflix,Transport,25.74
+2024-03-14,Amazon,Entertainment,28.23
+2024-01-27,Starbucks,Coffee,6.56
+2024-04-20,Spotify,Dining,55.79
+2024-03-10,Philz Coffee,Coffee,6.89
+2024-02-15,Philz Coffee,Coffee,5.17
+2024-02-26,Starbucks,Coffee,3.35
+2024-02-14,Trader Joe's,Entertainment,13.41
+2024-01-03,Lyft,Dining,25.47
+2024-01-27,Blue Bottle,Coffee,7.7
+2024-04-11,Amazon,Entertainment,38.74
+2024-03-19,Dunkin',Coffee,6.46
+2024-02-27,Local Cafe,Coffee,6.28
+2024-01-02,Local Cafe,Coffee,3.92
+2024-03-02,Blue Bottle,Coffee,4.89
+2024-03-27,Uber,Dining,26.62
+2024-02-28,Uber,Dining,27.68
+2024-04-14,Netflix,Dining,39.7
+2024-05-25,Netflix,Shopping,73.48
+2024-01-31,Blue Bottle,Coffee,4.39
+2024-05-14,Amazon,Transport,35.14
+2024-03-28,Blue Bottle,Coffee,3.64
+2024-06-08,Local Cafe,Coffee,5.4
+2024-04-30,Spotify,Rent,1500.0
+2024-01-25,Local Cafe,Coffee,7.08
+2024-06-26,Local Cafe,Coffee,5.91
+2024-06-16,Spotify,Entertainment,33.2
+2024-01-09,Safeway,Shopping,33.42
+2024-03-13,Lyft,Shopping,33.28
+2024-03-28,Peet's Coffee,Coffee,3.38
+2024-01-30,Local Cafe,Coffee,7.98
+2024-06-28,Lyft,Entertainment,40.82
+2024-01-11,Amazon,Dining,43.69
+2024-06-22,Lyft,Shopping,131.35
+2024-03-15,Trader Joe's,Entertainment,25.53
+2024-01-01,Peet's Coffee,Coffee,3.29
+2024-02-17,Uber,Shopping,30.47
+2024-06-24,Peet's Coffee,Coffee,6.81
+2024-03-12,Starbucks,Coffee,7.46
+2024-02-19,Safeway,Dining,33.88
+2024-03-31,Peet's Coffee,Coffee,4.82

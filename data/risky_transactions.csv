@@ -1,0 +1,8 @@
+date,merchant,amount,notes,card_number
+2025-09-01,STARBUCKS,4.95,Coffee run before class,
+2025-09-01,PAYROLL,-1800.0,Monthly stipend,
+2025-09-02,UBER,15.8,Trip ID 2391,
+2025-09-03,AMAZON,59.99,Order 123-456,4111 1111 1111 1111
+2025-09-04,TRADER JOE'S,42.1,Groceries for the week,
+2025-09-05,SPOTIFY,9.99,SSN 123-45-6789 on old form,
+2025-09-06,APARTMENTS LLC RENT,1500.0,September rent,
